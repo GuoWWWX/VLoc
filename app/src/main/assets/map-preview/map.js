@@ -20,8 +20,32 @@ const mapPreview = (() => {
     let previousMarker;
     let previewRadius = 0;
 
-    function initialize(isBaidu, editable, focus, viewport, showAttribution) {
-        const crs = isBaidu ? L.ChineseCRS.CRS_BaiduMercator : L.ChineseCRS.CRS_GCJ02_3857;
+    function initialize(source, editable, focus, viewport, showAttribution) {
+        let crs;
+        let tiles;
+        switch (source) {
+            case "BaiduPreview":
+                crs = L.ChineseCRS.CRS_BaiduMercator;
+                tiles = new L.ChineseCRS.BaiduTileLayer(
+                    "https://maponline0.bdimg.com/tile/?qt=vtile&x={x}&y={y}&z={z}&styles=pl&scaler=1&showtext=1",
+                    { ...tileOptions, attribution: "© 百度地图" },
+                );
+                break;
+            case "GooglePreview":
+                crs = L.CRS.EPSG3857;
+                tiles = L.tileLayer(
+                    "https://mt1.google.com/vt?lyrs=m&x={x}&y={y}&z={z}",
+                    { ...tileOptions, attribution: "© Google" },
+                );
+                break;
+            case "AMapPreview":
+                crs = L.ChineseCRS.CRS_GCJ02_3857;
+                tiles = L.tileLayer(
+                    "https://wprd01.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=7",
+                    { ...tileOptions, attribution: "© 高德地图" },
+                );
+                break;
+        }
         map = L.map("map", {
             crs,
             zoomControl: false,
@@ -40,16 +64,6 @@ const mapPreview = (() => {
             keyboard: editable,
         }).setView(viewport ? viewport.slice(0, 2) : focus, viewport ? viewport[2] : initialZoom);
         map.attributionControl?.setPrefix(false);
-
-        const tiles = isBaidu
-            ? new L.ChineseCRS.BaiduTileLayer(
-                "https://maponline0.bdimg.com/tile/?qt=vtile&x={x}&y={y}&z={z}&styles=pl&scaler=1&showtext=1",
-                { ...tileOptions, attribution: "© 百度地图" },
-            )
-            : L.tileLayer(
-                "https://wprd01.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=7",
-                { ...tileOptions, attribution: "© 高德地图" },
-            );
 
         let loaded = false;
         tiles.once("tileload", () => {
@@ -101,11 +115,11 @@ const mapPreview = (() => {
     }
 
     return {
-        render(isBaidu, editable, latitude, longitude, radiusMeters, recenter, zoomDelta, currentPoint, previousPoint,
+        render(source, editable, latitude, longitude, radiusMeters, recenter, zoomDelta, currentPoint, previousPoint,
             viewport, showAttribution, showCenter) {
             const focus = L.latLng(latitude, longitude);
             const firstRender = !map;
-            if (firstRender) initialize(isBaidu, editable, focus, viewport, showAttribution);
+            if (firstRender) initialize(source, editable, focus, viewport, showAttribution);
             else if (recenter) {
                 map.invalidateSize({ pan: false });
                 map.setView(focus, Math.max(initialZoom, map.getZoom()), { reset: true });

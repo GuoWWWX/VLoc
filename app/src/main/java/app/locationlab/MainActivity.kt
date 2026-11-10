@@ -16,7 +16,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
@@ -39,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.locationlab.data.Appearance
@@ -102,6 +105,7 @@ class MainActivity : ComponentActivity() {
     private fun LocationApp(model: LocationModel = viewModel()) {
         val data by model.data.collectAsStateWithLifecycle()
         val storageError by model.storageError.collectAsStateWithLifecycle()
+        val readError by model.readError.collectAsStateWithLifecycle()
         val simulation by SimulationService.state.collectAsStateWithLifecycle()
         var picker by rememberSaveable { mutableStateOf<PickerMode?>(null) }
         var manageHistory by rememberSaveable { mutableStateOf(false) }
@@ -151,10 +155,19 @@ class MainActivity : ComponentActivity() {
         MaterialTheme(colorScheme = theme) {
             Surface(Modifier.fillMaxSize(), color = theme.background) {
                 val loaded = data
-                if (loaded == null) {
+                if (loaded == null || readError) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        if (storageError) Text(stringResource(R.string.storage_error))
-                        else CircularProgressIndicator()
+                        if (readError) {
+                            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(stringResource(R.string.storage_read_error))
+                                TextButton(onClick = model::retryLoading) { Text(stringResource(R.string.retry_storage)) }
+                                if (active != null) {
+                                    TextButton(onClick = { SimulationService.stop(this@MainActivity) }) {
+                                        Text(stringResource(R.string.simulation_stop))
+                                    }
+                                }
+                            }
+                        } else CircularProgressIndicator()
                     }
                 } else {
                     val selectMapSource: (MapSource) -> Unit = { source ->

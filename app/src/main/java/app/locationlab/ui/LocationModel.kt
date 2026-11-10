@@ -8,10 +8,14 @@ import app.locationlab.data.LocationStore
 import app.locationlab.simulation.SimulationConfig
 import java.io.IOException
 import java.util.UUID
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONException
@@ -19,13 +23,15 @@ import org.json.JSONException
 class LocationModel(application: Application) : AndroidViewModel(application) {
     private val store = LocationStore(application)
     val storageError = MutableStateFlow(false)
-    val data = combine(store.data, store.lastSimulation) { data, point -> data.copy(lastSimulation = point) }.catch { error ->
-        if (error is IOException || error is JSONException || error is IllegalArgumentException) {
-            storageError.value = true
-        } else {
-            throw error
-        }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val readError = MutableStateFlow(false)
+    private val reloads = MutableStateFlow(0)
+    val data = observeLocationData(store, reloads) { readError.value = it }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun retryLoading() {
+        readError.value = false
+        reloads.value++
+    }
 
     fun add(
         config: SimulationConfig,
@@ -60,4 +66,21 @@ class LocationModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun observeLocationData(
+    store: LocationStore,
+    reloads: Flow<Int>,
+    onReadError: (Boolean) -> Unit,
+): Flow<AppData> = reloads.flatMapLatest {
+    combine(store.data, store.lastSimulation) { data, point -> data.copy(lastSimulation = point) }
+        .onEach { onReadError(false) }
+        .catch { error ->
+            if (error is IOException || error is JSONException || error is IllegalArgumentException) {
+                onReadError(true)
+            } else {
+                throw error
+            }
+        }
 }

@@ -9,5 +9,6 @@ enum class MapSource(@get:StringRes val label: Int, internal val styleUrl: Strin
     OpenStreetMap(R.string.map_osm),
     AMapPreview(R.string.map_amap),
     BaiduPreview(R.string.map_baidu),
+    GooglePreview(R.string.map_google),
 }
 

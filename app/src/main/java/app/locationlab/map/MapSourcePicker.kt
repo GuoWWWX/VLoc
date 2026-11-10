@@ -51,21 +51,15 @@ internal fun MapSourcePicker(
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 49.dp).clip(RoundedCornerShape(12.dp))
                             .then(if (selected) Modifier.background(colors.secondaryContainer) else Modifier)
-                            .selectable(selected, enabled = option != null, role = Role.RadioButton) {
-                                if (option != null) {
-                                    showChoices = false
-                                    onSelect(option)
-                                }
+                            .selectable(selected, role = Role.RadioButton) {
+                                showChoices = false
+                                onSelect(option)
                             }.padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        LocationIcon(Glyph.Layers, color = if (option != null) colors.primary else colors.onSurfaceVariant)
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(stringResource(option?.label ?: R.string.map_google),
-                                color = colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            if (option == null) Text(stringResource(R.string.map_google_unavailable),
-                                color = colors.onSurfaceVariant, fontSize = 11.sp)
-                        }
+                        LocationIcon(Glyph.Layers, color = colors.primary)
+                        Text(stringResource(option.label), Modifier.weight(1f).padding(start = 12.dp),
+                            color = colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         if (selected) LocationIcon(Glyph.Check, color = colors.onSecondaryContainer)
                     }
                 }
@@ -75,5 +69,6 @@ internal fun MapSourcePicker(
 }
 
 private val mapDisplayOrder = listOf(
-    MapSource.AMapPreview, MapSource.BaiduPreview, null, MapSource.OpenFreeMap, MapSource.OpenStreetMap, MapSource.VersaTiles,
+    MapSource.AMapPreview, MapSource.BaiduPreview, MapSource.GooglePreview,
+    MapSource.OpenFreeMap, MapSource.OpenStreetMap, MapSource.VersaTiles,
 )

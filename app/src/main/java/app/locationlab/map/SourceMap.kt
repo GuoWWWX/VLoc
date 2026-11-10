@@ -65,7 +65,7 @@ internal fun SourceMap(
             MapSource.OpenStreetMap -> LocationMap(camera, onPointSelected, modifier, initialViewport, onViewportChanged, showAttribution)
             MapSource.OpenFreeMap, MapSource.VersaTiles ->
                 VectorMap(requireNotNull(source.styleUrl), camera, onPointSelected, modifier, initialViewport, onViewportChanged, showAttribution)
-            MapSource.AMapPreview, MapSource.BaiduPreview ->
+            MapSource.AMapPreview, MapSource.BaiduPreview, MapSource.GooglePreview ->
                 RasterPreviewMap(source, camera, onPointSelected, modifier, initialViewport, onViewportChanged, showAttribution)
         }
     }
@@ -120,11 +120,13 @@ private fun VectorMap(
 
     Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant)) {
         if (surface != null) {
-            AndroidView(
-                factory = { surface.view },
-                modifier = Modifier.fillMaxSize(),
-                update = { surface.render(camera) },
-            )
+            key(surface) {
+                AndroidView(
+                    factory = { surface.view },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { surface.render(camera) },
+                )
+            }
         }
         if (surface == null || failed) {
             val editable = onPointSelected != null

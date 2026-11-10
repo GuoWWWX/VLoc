@@ -95,6 +95,8 @@ def asset(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apks", nargs=2, type=Path, help="signed APKs, one for each ABI")
+    parser.add_argument("--previous-release", required=True, type=Path,
+                        help="previous official APK used to verify signer and increasing versions")
     parser.add_argument("--base", action="append", default=[], type=Path, help="optional previous signed APK, repeatable")
     parser.add_argument("--sdk", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
@@ -108,7 +110,15 @@ def main():
         for _, info in targets
     ):
         raise ValueError("Expected matching signed VLoc APKs for both ARM ABIs")
+    previous_code, previous_version, _, previous_signers, _ = apk_info(args.previous_release, args.sdk)
+    if signers != previous_signers:
+        raise ValueError("Release must use the same signer as the previous official APK")
+    if code <= previous_code or tuple(map(int, version.split('.'))) <= tuple(map(int, previous_version.split('.'))):
+        raise ValueError("Release must have a higher versionCode and versionName than the previous official APK")
     bases = [(path, apk_info(path, args.sdk)) for path in args.base]
+    for base, (old_code, _, _, old_signers, _) in bases:
+        if old_code >= code or old_signers != signers:
+            raise ValueError(f"Delta base needs a lower version and the same signer: {base}")
     args.output.mkdir(parents=True, exist_ok=True)
     packages = {}
     for path, (_, _, abi, _, _) in targets:
@@ -122,8 +132,6 @@ def main():
         for base, (old_code, old_version, old_abi, old_signers, _) in bases:
             if old_abi != abi:
                 continue
-            if old_code >= code or old_signers != signers:
-                raise ValueError(f"Delta base needs a lower version and the same signer: {base}")
             old_hash = asset(base)["sha256"]
             patch = make_patch(base, target)
             # APKs built with different compression levels often share few compressed bytes.

@@ -29,9 +29,9 @@
 3. 确认后回到首页，再点「开始模拟」。可从应用内或运行通知停止。
 4. 使用其他定位应用验证位置。Android 会标记模拟位置，目标应用可能不采纳。
 
-新选点开启漂移时，默认每次开始模拟在范围内随机选一次位置，之后保持该坐标。也可以设置每隔若干秒、分钟、小时或天漂移，或在模拟运行期间按手机当地时间每天漂移一次。
+新选点开启漂移时，半径默认 50 m，支持手动输入。每个位置分别保存漂移参数，默认每次开始模拟在范围内随机选一次位置，之后保持该坐标。也可以设置每隔若干秒、分钟、小时或天漂移，或在模拟运行期间按手机当地时间每天漂移一次。
 
-运行中的漂移预览用蓝针标出本次位置，用灰针标出上次位置。点「刷新」可在圆内手动换点。长按坐标可以复制。长按历史记录可编辑、置顶或分享。复制 VLoc 分享文本后回到应用，可确认导入位置。
+运行中的漂移预览用蓝针标出本次位置，用灰针标出上次位置；停止或重开应用后仍保留最近一次模拟点。点「刷新」可在圆内手动换点。长按坐标可以复制。长按历史记录可编辑、置顶或分享，侧栏可进入历史管理进行日期筛选和批量处理。复制 VLoc 分享文本后回到应用，可确认导入位置。
 
 安装 APK 后可直接在手机上使用。只有通过电脑安装、读取日志或真机调试时需要打开 USB 调试。
 
@@ -41,7 +41,7 @@
 
 「高德地图」和「百度地图」也在应用内提供选点。两者使用随包的 Leaflet 和 ChineseCRS，通过 HTTPS 请求在线瓦片。百度使用独立的瓦片投影，选点坐标按近似 WGS‑84 返回。服务商可能调整直连瓦片接口或限制使用。对外发布前需确认服务条款和授权范围。[高德 Android SDK 密钥](https://lbs.amap.com/api/android-sdk/guide/create-project/get-key) · [百度 Android SDK 密钥](https://lbsyun.baidu.com/docs/guide?title=android-guide%2Fcreate-project%2Fak)
 
-地图列表的第三项是 Google 地图。官方应用内接入需要 Google Cloud 项目和密钥，目前该项显示配置提示。[Google Maps SDK 配置说明](https://developers.google.com/maps/documentation/android-sdk/get-api-key)
+地图列表的第三项是 Google 地图，使用 Leaflet 显示普通道路瓦片，可以在应用内选点和预览。这个直连地址无需配置密钥，但属于未公开支持的接口，能否加载取决于设备网络和服务端。加载失败时可切换地图来源。[Google 官方瓦片 API 文档](https://developers.google.com/maps/documentation/tile/get-api-key)
 
 各免费服务的使用说明见 [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/)、[OpenFreeMap](https://openfreemap.org/quick_start/) 和 [VersaTiles](https://docs.versatiles.org/guides/use_tiles_versatiles_org)。
 

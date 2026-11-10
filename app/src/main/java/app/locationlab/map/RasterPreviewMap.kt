@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import app.locationlab.simulation.Coordinate
 import kotlinx.coroutines.delay
 
@@ -71,7 +72,7 @@ internal fun RasterPreviewMap(
 
 private class RasterPreviewSurface(
     context: Context,
-    source: MapSource,
+    private val source: MapSource,
     private val editable: Boolean,
     private val viewport: MapViewport?,
     private val showAttribution: Boolean,
@@ -79,9 +80,12 @@ private class RasterPreviewSurface(
     private val onViewportChanged: (MapViewport) -> Unit,
     private val onTiles: (Boolean) -> Unit,
 ) {
-    private val isBaidu = source == MapSource.BaiduPreview
-    private val tileHost = if (isBaidu) "maponline0.bdimg.com" else "wprd01.is.autonavi.com"
-    private val tilePath = if (isBaidu) "/tile/" else "/appmaptile"
+    private val tileEndpoint = when (source) {
+        MapSource.AMapPreview -> "https://wprd01.is.autonavi.com/appmaptile"
+        MapSource.BaiduPreview -> "https://maponline0.bdimg.com/tile/"
+        MapSource.GooglePreview -> "https://mt1.google.com/vt"
+        else -> error("Unsupported WebView map source: $source")
+    }.toUri()
     private var camera: MapCamera? = null
     private var rendered: MapCamera? = null
     private var ready = false
@@ -113,7 +117,7 @@ private class RasterPreviewSurface(
                             )
                         }
                     }
-                    if (!request.isForMainFrame && url.host == tileHost && url.path == tilePath) return null
+                    if (!request.isForMainFrame && url.host == tileEndpoint.host && url.path == tileEndpoint.path) return null
                 }
                 return WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), null)
             }
@@ -137,7 +141,7 @@ private class RasterPreviewSurface(
         fun point(value: Coordinate?): String = value?.let { "[${it.latitude},${it.longitude}]" } ?: "null"
         val initialViewport = viewport?.let { "[${it.center.latitude},${it.center.longitude},${it.zoom}]" } ?: "null"
         view.evaluateJavascript(
-            "mapPreview.render($isBaidu, $editable, ${next.focus.latitude}, ${next.focus.longitude}, " +
+            "mapPreview.render('${source.name}', $editable, ${next.focus.latitude}, ${next.focus.longitude}, " +
                 "${next.radiusMeters ?: 0}, $move, $zoom, ${point(next.currentPoint)}, ${point(next.previousPoint)}, " +
                 "$initialViewport, $showAttribution, ${next.showCenter})",
             null,

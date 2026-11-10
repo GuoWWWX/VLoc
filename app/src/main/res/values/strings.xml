@@ -167,11 +167,12 @@
     <string name="welcome_enter">进入 VLoc</string>
     <string name="welcome_skip">稍后设置</string>
     <string name="map_google">Google 地图</string>
-    <string name="map_google_unavailable">需配置 Google Maps API 密钥</string>
     <string name="drawer_footer">VLoc  /  Android</string>
     <string name="mock_guide">在系统设置中开启开发者选项，再打开「选择模拟位置信息应用」，选择「VLoc」。</string>
     <string name="settings_unavailable">未找到系统入口。请手动打开手机设置。</string>
     <string name="storage_error">无法读取或保存本地数据，请重开应用后重试。</string>
+    <string name="storage_read_error">暂时无法读取本地数据，请重试。应用不会清空已有记录。</string>
+    <string name="retry_storage">重试</string>
     <string name="map_attribution">© OpenStreetMap contributors</string>
     <string name="map_load_error">底图加载失败。可切换地图来源，或手动输入坐标。</string>
     <string name="map_preview_error">地图预览暂时无法加载</string>
