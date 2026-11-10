@@ -314,7 +314,7 @@ private fun CurrentLocationCard(
 ) {
     val colors = MaterialTheme.colorScheme
     val busy = busyStatus != null
-    val previous = if (active != null) active.previousPoint else lastSimulation
+    val previous = (if (active != null) active.previousPoint else lastSimulation).takeIf { config?.drift == true }
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp)).background(colors.surface)
             .padding(start = 16.dp, top = 13.dp, end = 16.dp, bottom = 14.dp),
