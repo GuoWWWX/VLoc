@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://wprd01.is.autonavi.com https://maponline0.bdimg.com; base-uri 'none'; form-action 'none'">
+    <link rel="stylesheet" href="leaflet.css">
+    <style>
+        html, body { margin: 0; overflow: hidden; }
+        #map { position: fixed; inset: 0; background: #e6eee6; }
+        .leaflet-bottom.leaflet-right { bottom: var(--map-credit-inset, 0); }
+        .selection-pin svg { display: block; }
+    </style>
+    <script src="leaflet.js" defer></script>
+    <script src="chinese-crs.js" defer></script>
+    <script src="map.js" defer></script>
+    <title>地图选点</title>
+</head>
+<body>
+    <div id="map" aria-label="地图"></div>
+</body>
+</html>
