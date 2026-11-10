@@ -2,6 +2,15 @@ package app.locationlab.ui
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
@@ -17,6 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import app.locationlab.BuildConfig
 import app.locationlab.R
@@ -38,7 +50,15 @@ internal fun AboutUpdates(onClose: () -> Unit) {
     var download by remember { mutableStateOf<Job?>(null) }
     var checking by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
-    val attribution = stringResource(R.string.osm_copyright)
+    val projectUrl = "https://github.com/${BuildConfig.UPDATE_REPOSITORY}"
+    val colors = MaterialTheme.colorScheme
+    fun openProject(path: String) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, (projectUrl + path).toUri()))
+        } catch (_: android.content.ActivityNotFoundException) {
+            android.widget.Toast.makeText(context, R.string.project_link_unavailable, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val action = when {
         checking -> R.string.update_checking
@@ -51,27 +71,44 @@ internal fun AboutUpdates(onClose: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text(stringResource(R.string.about)) },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("VLoc", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+                    fontSize = 13.sp, color = colors.onSurfaceVariant)
+            }
+        },
         text = {
-            Column {
-                Text(stringResource(R.string.about_text, BuildConfig.VERSION_NAME))
-                update?.let { Text(stringResource(R.string.update_available, it.version)) }
-                status?.let { Text(stringResource(it)) }
-                if (download != null) {
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                    Text(stringResource(R.string.update_progress, (progress * 100).toInt()))
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(stringResource(R.string.about_text), color = colors.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { openProject("") }) { Text("GitHub") }
+                    TextButton(onClick = { openProject("/releases") }) { Text(stringResource(R.string.about_releases)) }
+                    TextButton(onClick = { openProject("/blob/main/LICENSE") }) { Text("MIT") }
                 }
-                TextButton(onClick = {
-                    try {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, attribution.toUri()))
-                    } catch (_: android.content.ActivityNotFoundException) {
-                        android.widget.Toast.makeText(context, attribution, android.widget.Toast.LENGTH_LONG).show()
+                Surface(shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerLow) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(stringResource(R.string.about_updates), fontWeight = FontWeight.SemiBold,
+                            color = colors.onSurface)
+                        update?.let { Text(stringResource(R.string.update_available, it.version), color = colors.primary) }
+                        status?.let { Text(stringResource(it), fontSize = 12.sp, lineHeight = 18.sp) }
+                        if (checking) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        if (download != null || progress > 0f || status == R.string.update_paused) {
+                            LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                            Text(stringResource(if (apk != null) R.string.update_download_complete else
+                                if (progress >= 1f && download != null) R.string.update_verifying else R.string.update_progress,
+                                (progress.coerceIn(0f, 1f) * 100).toInt()), fontSize = 12.sp)
+                        }
+                        if (status == null && update == null && !checking) {
+                            Text(stringResource(R.string.about_update_hint), fontSize = 12.sp, lineHeight = 18.sp,
+                                color = colors.onSurfaceVariant)
+                        }
                     }
-                }) { Text(stringResource(R.string.map_attribution)) }
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = !checking, onClick = {
+            Button(enabled = !checking, onClick = {
                 val ready = apk
                 val release = update
                 when {
@@ -99,6 +136,7 @@ internal fun AboutUpdates(onClose: () -> Unit) {
                         download = scope.launch {
                             try {
                                 apk = repository.prepare(release) { progress = it }
+                                progress = 1f
                                 status = R.string.update_ready
                             } catch (_: IOException) {
                                 status = R.string.update_failed

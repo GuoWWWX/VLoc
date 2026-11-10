@@ -159,7 +159,14 @@
     <string name="notification_settings">通知设置</string>
     <string name="mock_settings">模拟位置设置</string>
     <string name="about">关于</string>
-    <string name="about_text">VLoc %1$s\n用于测试 Android 模拟位置。可在设置或选点页切换在线底图。OpenStreetMap、OpenFreeMap 和 VersaTiles 无需地图密钥。</string>
+    <string name="about_text">在地图上选择位置，模拟固定定位或圆内漂移。开源、无需账号，位置记录保存在本机。</string>
+    <string name="about_version">版本 %1$s · Android</string>
+    <string name="about_releases">更新记录</string>
+    <string name="about_updates">软件更新</string>
+    <string name="about_update_hint">每天自动检查，发现新版后通过通知提醒。需允许通知并保持联网；也可立即手动检查。</string>
+    <string name="project_link_unavailable">无法打开链接，请安装或启用浏览器。</string>
+    <string name="update_download_complete">下载完成，安装包已校验</string>
+    <string name="update_verifying">下载完成，正在准备并校验安装包…</string>
     <string name="update_check">检查更新</string>
     <string name="update_checking">正在检查</string>
     <string name="update_latest">已是最新版本</string>
