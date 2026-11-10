@@ -49,11 +49,28 @@ internal fun decodeDriftTiming(encoded: String?, legacySeconds: Int? = null): Dr
     }
 }
 
+sealed interface DriftDeadline {
+    data class Interval(val elapsedRealtime: Long) : DriftDeadline
+    data class Daily(val time: ZonedDateTime) : DriftDeadline
+
+    fun remainingMilliseconds(elapsed: Long, wall: ZonedDateTime): Long = when (this) {
+        is Interval -> elapsedRealtime - elapsed
+        is Daily -> Duration.between(wall, time).toMillis()
+    }.coerceAtLeast(0)
+}
+
 internal class DriftTimer(private val timing: DriftTiming, startedElapsed: Long, startedWall: ZonedDateTime) {
     private var nextElapsed = startedElapsed + ((timing as? DriftTiming.Interval)?.milliseconds ?: 0)
     private var nextWall = (timing as? DriftTiming.Daily)?.nextAfter(startedWall, null)
     private var lastWall = startedWall
     private var lastDailyDate: LocalDate? = null
+
+    val nextDeadline: DriftDeadline?
+        get() = when (timing) {
+            DriftTiming.OnStart -> null
+            is DriftTiming.Interval -> DriftDeadline.Interval(nextElapsed)
+            is DriftTiming.Daily -> DriftDeadline.Daily(requireNotNull(nextWall))
+        }
 
     fun millisecondsUntil(elapsed: Long, wall: ZonedDateTime): Long = when (timing) {
         DriftTiming.OnStart -> Long.MAX_VALUE

@@ -85,6 +85,15 @@ data class AppData(
     fun favoriteHistory(keys: Set<String>): AppData =
         copy(history = history.map { if (it.key in keys) it.copy(favorite = true) else it })
 
+    fun importHistory(entries: List<HistoryEntry>): AppData {
+        val imported = entries.associateBy { it.key }
+        val existingKeys = history.mapTo(mutableSetOf()) { it.key }
+        val merged = copy(history = history.map { imported[it.key] ?: it } +
+            entries.filterNot { it.key in existingKeys })
+        val selected = imported[selectedHistoryKey]
+        return if (selected == null) merged else merged.use(selected)
+    }
+
     fun clearOrdinaryHistory(): AppData = copy(history = history.filter { it.pinned || it.favorite })
 
     fun visibleHistory(favoritesOnly: Boolean): List<HistoryEntry> =

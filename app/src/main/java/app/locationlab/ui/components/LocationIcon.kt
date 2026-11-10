@@ -21,6 +21,7 @@ import app.locationlab.R
 
 internal enum class Glyph(val path: String, val filled: Boolean = false) {
     Menu("M4 5h16M4 12h16M4 19h11"),
+    More("M5 12h.01M12 12h.01M19 12h.01"),
     Back("m15 5-7 7 7 7"),
     Next("m9 5 7 7-7 7"),
     Close("M6 6l12 12M18 6 6 18"),

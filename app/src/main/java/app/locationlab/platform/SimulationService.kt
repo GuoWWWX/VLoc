@@ -19,6 +19,7 @@ import app.locationlab.MainActivity
 import app.locationlab.R
 import app.locationlab.simulation.Coordinate
 import app.locationlab.simulation.DEFAULT_DRIFT_RADIUS
+import app.locationlab.simulation.DriftDeadline
 import app.locationlab.simulation.DriftEngine
 import app.locationlab.simulation.DriftTimer
 import app.locationlab.simulation.DriftTiming
@@ -55,6 +56,7 @@ sealed interface SimulationState {
         val previousPoint: Coordinate? = null,
         val name: String? = null,
         val refreshing: Boolean = false,
+        val nextDrift: DriftDeadline? = null,
     ) : SimulationState
     data class Error(@StringRes val message: Int) : SimulationState
 }
@@ -120,11 +122,16 @@ class SimulationService : Service() {
             var point = engine.initialPoint()
             mock.open()
             val previous = deliver(point)
-            mutableState.value = SimulationState.Running(config, point, previousPoint = previous, name = name)
             val timer = DriftTimer(if (config.drift) config.timing else DriftTiming.OnStart,
                 SystemClock.elapsedRealtime(), ZonedDateTime.now())
+            mutableState.value = SimulationState.Running(config, point, previousPoint = previous,
+                name = name, nextDrift = timer.nextDeadline)
             while (currentCoroutineContext().isActive) {
                 val wait = timer.millisecondsUntil(SystemClock.elapsedRealtime(), ZonedDateTime.now())
+                val scheduled = mutableState.value as? SimulationState.Running
+                if (scheduled != null && scheduled.nextDrift != timer.nextDeadline) {
+                    mutableState.value = scheduled.copy(nextDrift = timer.nextDeadline)
+                }
                 val refresh = withTimeoutOrNull(wait.coerceIn(1, LOCATION_REFRESH_MS)) {
                     refreshRequests.receive()
                 } != null
@@ -141,7 +148,8 @@ class SimulationService : Service() {
                     val last = deliver(next)
                     point = next
                     val running = mutableState.value as? SimulationState.Running
-                    if (running != null) mutableState.value = running.copy(point = point, previousPoint = last)
+                    if (running != null) mutableState.value = running.copy(point = point,
+                        previousPoint = last, nextDrift = timer.nextDeadline)
                 }
                 if (refresh) {
                     delay(REFRESH_FEEDBACK_MS - (SystemClock.elapsedRealtime() - refreshStarted))

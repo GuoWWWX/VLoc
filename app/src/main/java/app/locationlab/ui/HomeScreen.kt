@@ -380,6 +380,7 @@ private fun CurrentLocationCard(
                 minimumHeight = 38.dp, glyph = if (running) Glyph.Stop else null,
             )
         }
+        if (active != null) DriftScheduleStatus(active)
     }
 }
 

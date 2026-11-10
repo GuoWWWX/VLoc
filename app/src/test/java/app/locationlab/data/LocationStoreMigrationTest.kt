@@ -58,6 +58,31 @@ class LocationStoreMigrationTest {
         assertEquals(first, reopened.data.first().use("one", 3).config)
     }
 
+    @Test
+    fun restoredBackupPersistsWithoutReplacingOtherHistoryOrSettings() = runBlocking {
+        val storage = TestStore("{}")
+        val store = LocationStore(storage)
+        val config = SimulationConfig(Coordinate(22.54, 114.05))
+        val original = AppData().add(config, 1, "公共样例", "selected")
+            .add(config, 2, "保留样例", "keep", makeCurrent = false)
+            .copy(appearance = Appearance.Dark, mapSource = MapSource.GooglePreview)
+        store.edit { original }
+        val lastSimulation = Coordinate(22.5401, 114.0501)
+        store.recordSimulation(lastSimulation)
+        val imported = listOf(original.history.first().copy(favorite = true, pinned = true,
+            drift = true, radiusMeters = 800, timing = DriftTiming.Daily(9, 45)),
+            original.history.first().copy(key = "new", placeName = "新增样例"))
+        val backup = LocationBackup.encode(imported, 3)
+        val restored = LocationBackup.read(backup.byteInputStream(Charsets.UTF_8))
+
+        store.edit { it.importHistory(restored) }
+
+        val reopened = LocationStore(storage)
+        assertEquals(original.importHistory(imported), reopened.data.first())
+        assertEquals(lastSimulation, reopened.lastSimulation.first())
+        assertEquals(imported.first().configuration(), reopened.data.first().config)
+    }
+
     private class TestStore(raw: String) : DataStore<Preferences> {
         override val data = MutableStateFlow<Preferences>(mutablePreferencesOf(stringPreferencesKey("app_data") to raw))
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =

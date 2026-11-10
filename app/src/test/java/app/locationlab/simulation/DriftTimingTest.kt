@@ -53,4 +53,30 @@ class DriftTimingTest {
         assertFalse(timer.advanceIfDue(0, due))
         assertTrue(timer.advanceIfDue(0, due.plusDays(1)))
     }
+
+    @Test
+    fun countdownUsesTheSameIntervalDeadlineAndSurvivesWallClockChanges() {
+        val timer = DriftTimer(DriftTiming.Interval(1, DriftIntervalUnit.Minutes), 1000, morning)
+        val deadline = requireNotNull(timer.nextDeadline)
+        assertEquals(60_000L, deadline.remainingMilliseconds(1000, morning))
+        assertEquals(30_000L, deadline.remainingMilliseconds(31_000, morning.plusHours(2)))
+        // A manual refresh before the deadline must leave the existing schedule intact.
+        assertFalse(timer.advanceIfDue(31_000, morning.plusHours(2)))
+        assertEquals(deadline, timer.nextDeadline)
+        assertTrue(timer.advanceIfDue(61_000, morning.plusMinutes(1)))
+        assertEquals(60_000L, requireNotNull(timer.nextDeadline).remainingMilliseconds(61_000, morning))
+    }
+
+    @Test
+    fun dailyCountdownFollowsTomorrowAndTimezoneChanges() {
+        val timer = DriftTimer(DriftTiming.Daily(8, 30), 0, morning)
+        assertEquals(5_400_000L, requireNotNull(timer.nextDeadline).remainingMilliseconds(0, morning))
+        val due = morning.plusMinutes(90)
+        assertTrue(timer.advanceIfDue(0, due))
+        assertEquals(86_400_000L, requireNotNull(timer.nextDeadline).remainingMilliseconds(0, due))
+        val shifted = due.withZoneSameInstant(ZoneId.of("Europe/London"))
+        val wait = timer.millisecondsUntil(0, shifted)
+        assertEquals(wait, requireNotNull(timer.nextDeadline).remainingMilliseconds(0, shifted))
+        assertEquals(null, DriftTimer(DriftTiming.OnStart, 0, morning).nextDeadline)
+    }
 }

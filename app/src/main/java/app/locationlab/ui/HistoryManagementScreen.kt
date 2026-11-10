@@ -3,6 +3,7 @@ package app.locationlab.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,12 +21,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -45,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,6 +60,7 @@ import app.locationlab.data.HistoryEntry
 import app.locationlab.simulation.Coordinate
 import app.locationlab.ui.components.ButtonStyle
 import app.locationlab.ui.components.DestructiveRed
+import app.locationlab.ui.components.FavoriteYellow
 import app.locationlab.ui.components.Glyph
 import app.locationlab.ui.components.LocationButton
 import app.locationlab.ui.components.LocationIcon
@@ -72,6 +78,10 @@ private enum class HistoryPeriod(@StringRes val label: Int, val days: Long? = nu
     Custom(R.string.history_custom_dates),
 }
 
+private enum class HistoryFilter(@StringRes val label: Int) {
+    All(R.string.history_all_filter), Favorites(R.string.history_favorites_filter), Pinned(R.string.history_pinned_filter),
+}
+
 @Composable
 internal fun HistoryManagementScreen(
     entries: List<HistoryEntry>,
@@ -87,6 +97,7 @@ internal fun HistoryManagementScreen(
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     var query by rememberSaveable { mutableStateOf("") }
+    var filter by rememberSaveable { mutableStateOf(HistoryFilter.All) }
     var period by rememberSaveable { mutableStateOf(HistoryPeriod.All) }
     var start by rememberSaveable { mutableLongStateOf(today.minusDays(6).toEpochDay()) }
     var end by rememberSaveable { mutableLongStateOf(today.toEpochDay()) }
@@ -99,20 +110,25 @@ internal fun HistoryManagementScreen(
     var shareKey by rememberSaveable { mutableStateOf<String?>(null) }
     val first = period.days?.let { today.minusDays(it - 1) } ?: LocalDate.ofEpochDay(start)
     val last = if (period == HistoryPeriod.Custom) LocalDate.ofEpochDay(end) else today
-    val groups = remember(entries, query, period, first, last, zone) {
+    val groups = remember(entries, query, filter, period, first, last, zone) {
         val text = query.trim()
         entries.asSequence().sortedByDescending { it.selectedAt }.filter { entry ->
             val matches = text.isEmpty() || entry.placeName?.contains(text, ignoreCase = true) == true ||
                 entry.coordinate.display().contains(text)
-            matches && (period == HistoryPeriod.All || localDay(entry.selectedAt, zone) in first..last)
+            val matchesFilter = when (filter) {
+                HistoryFilter.All -> true
+                HistoryFilter.Favorites -> entry.favorite
+                HistoryFilter.Pinned -> entry.pinned
+            }
+            matches && matchesFilter && (period == HistoryPeriod.All || localDay(entry.selectedAt, zone) in first..last)
         }.groupBy { localDay(it.selectedAt, zone) }
     }
     val visibleKeys = remember(groups) { groups.values.flatten().mapTo(mutableSetOf()) { it.key } }
     val selected = checked intersect visibleKeys
 
     Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
-        Column(Modifier.widthIn(max = 540.dp).fillMaxSize().padding(horizontal = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.widthIn(max = 540.dp).fillMaxSize()) {
+            Row(Modifier.padding(start = 8.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 LocationIconButton(Glyph.Back, stringResource(R.string.back), onBack, iconSize = 21.dp)
                 Text(stringResource(R.string.history_management), Modifier.weight(1f),
                     fontSize = 21.sp, fontWeight = FontWeight.Bold)
@@ -120,7 +136,7 @@ internal fun HistoryManagementScreen(
                     Text(stringResource(if (multi) R.string.history_done else R.string.history_multiselect))
                 }
             }
-            Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically,
+            Row(Modifier.padding(start = 20.dp, top = 12.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 OutlinedTextField(query, { query = it; checked = emptySet() }, Modifier.weight(1f),
                     singleLine = true, shape = RoundedCornerShape(12.dp),
@@ -135,9 +151,17 @@ internal fun HistoryManagementScreen(
                     Text(stringResource(if (period == HistoryPeriod.All) R.string.history_date else period.label))
                 }
             }
-            Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), horizontalArrangement = Arrangement.SpaceBetween,
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (option in HistoryFilter.entries) FilterChip(
+                    selected = filter == option,
+                    onClick = { filter = option; checked = emptySet() },
+                    label = { Text(stringResource(option.label)) },
+                )
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).heightIn(min = 48.dp), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                if (multi) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (multi) Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     TriStateCheckbox(
                         state = when {
                             selected.isEmpty() -> ToggleableState.Off
@@ -147,11 +171,16 @@ internal fun HistoryManagementScreen(
                         onClick = { checked = if (selected.size == visibleKeys.size) emptySet() else visibleKeys },
                         enabled = visibleKeys.isNotEmpty(),
                     )
-                    Text(stringResource(R.string.history_select_all), fontSize = 12.sp, color = colors.onSurfaceVariant)
-                } else Box(Modifier.size(1.dp))
-                Text(stringResource(R.string.history_count, visibleKeys.size), color = colors.onSurfaceVariant, fontSize = 12.sp)
+                    Text(stringResource(R.string.history_select_all), Modifier.weight(1f),
+                        fontSize = 12.sp, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                } else Box(Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.history_count, visibleKeys.size), color = colors.onSurfaceVariant,
+                        fontSize = 12.sp, maxLines = 1)
+                    HistoryBackupActions(entries, selected.takeIf { multi })
+                }
             }
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 12.dp)) {
+            LazyColumn(Modifier.weight(1f).padding(horizontal = 20.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
                 if (groups.isEmpty()) item {
                     Text(stringResource(R.string.history_no_results), Modifier.padding(vertical = 20.dp),
                         color = colors.onSurfaceVariant)
@@ -165,7 +194,7 @@ internal fun HistoryManagementScreen(
                         }
                         Text(label, Modifier.padding(top = 14.dp, bottom = 6.dp), color = colors.onSurfaceVariant, fontSize = 12.sp)
                     }
-                    itemsIndexed(rows, key = { _, entry -> entry.key }) { index, entry ->
+                    itemsIndexed(rows, key = { _, entry -> "entry-${entry.key}" }) { index, entry ->
                         val top = if (index == 0) 16.dp else 0.dp
                         val bottom = if (index == rows.lastIndex) 16.dp else 0.dp
                         val marked = entry.key in selected
@@ -177,15 +206,29 @@ internal fun HistoryManagementScreen(
                                 else Modifier.clickable { menuKey = entry.key }
                             ).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                                if (multi) Checkbox(marked, onCheckedChange = null, modifier = Modifier.size(21.dp))
-                                else Box(Modifier.size(31.dp).clip(RoundedCornerShape(9.dp)).background(colors.background),
+                                Box(Modifier.size(31.dp).then(if (multi) Modifier else
+                                    Modifier.clip(RoundedCornerShape(9.dp)).background(colors.background)),
                                     contentAlignment = Alignment.Center) {
-                                    LocationIcon(Glyph.Position, size = 17.dp, color = colors.primary)
+                                    if (multi) Checkbox(marked, onCheckedChange = null, modifier = Modifier.size(21.dp))
+                                    else LocationIcon(Glyph.Position, size = 17.dp, color = colors.primary)
                                 }
                                 Column(Modifier.weight(1f)) {
-                                    Text(entry.placeName ?: stringResource(R.string.coordinate_title),
-                                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis)
+                                    Row(verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(entry.placeName ?: stringResource(R.string.coordinate_title),
+                                            Modifier.weight(1f, fill = false), fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (entry.favorite) {
+                                            val label = stringResource(R.string.favorite)
+                                            LocationIcon(Glyph.StarFilled, Modifier.semantics { contentDescription = label },
+                                                size = 14.dp, color = FavoriteYellow)
+                                        }
+                                        if (entry.pinned) {
+                                            val label = stringResource(R.string.pin)
+                                            LocationIcon(Glyph.Pin, Modifier.semantics { contentDescription = label },
+                                                size = 13.dp, color = colors.primary)
+                                        }
+                                    }
                                     CopyableCoordinate(entry.coordinate, fontSize = 10.sp)
                                 }
                                 if (!multi) TextButton(enabled = canApply, onClick = { onApply(entry) }) {
@@ -197,8 +240,8 @@ internal fun HistoryManagementScreen(
                 }
             }
             if (multi) {
-                HorizontalDivider(color = colors.outlineVariant)
-                Row(Modifier.fillMaxWidth().padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
+                HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = colors.outlineVariant)
+                Row(Modifier.fillMaxWidth().padding(start = 20.dp, top = 3.dp, end = 20.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     TextButton(enabled = selected.isNotEmpty(), onClick = { onFavorite(selected); checked = emptySet() }) {
                         Text(stringResource(R.string.favorite))
