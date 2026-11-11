@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -25,7 +26,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,9 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,8 +50,6 @@ import app.locationlab.ui.components.Glyph
 import app.locationlab.ui.components.LocationIcon
 import app.locationlab.ui.components.LocationIconButton
 
-private enum class SettingsDialog { Appearance, About }
-
 @Composable
 fun SettingsDrawer(
     appearance: Appearance,
@@ -59,16 +60,10 @@ fun SettingsDrawer(
     onMockSettings: () -> Unit,
     onNotifications: () -> Unit,
     onHistory: () -> Unit,
-    openAbout: Boolean,
-    onAboutOpened: () -> Unit,
+    showUpdateBadge: Boolean,
+    onAbout: () -> Unit,
 ) {
-    var dialog by rememberSaveable { mutableStateOf<SettingsDialog?>(null) }
-    LaunchedEffect(openAbout) {
-        if (openAbout) {
-            dialog = SettingsDialog.About
-            onAboutOpened()
-        }
-    }
+    var showAppearance by rememberSaveable { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     ModalDrawerSheet(
         modifier = Modifier.widthIn(max = 312.dp),
@@ -85,7 +80,7 @@ fun SettingsDrawer(
                 }
                 Spacer(Modifier.height(22.dp))
                 Section(R.string.settings_app)
-                Setting(R.string.appearance, Glyph.Appearance) { dialog = SettingsDialog.Appearance }
+                Setting(R.string.appearance, Glyph.Appearance) { showAppearance = true }
                 Setting(R.string.notification_settings, Glyph.Notification, onClick = onNotifications)
                 DrawerDivider()
                 Section(R.string.settings_data)
@@ -95,16 +90,16 @@ fun SettingsDrawer(
                     Setting(R.string.map_source, Glyph.Layers, onClick = open)
                 }
                 DrawerDivider()
-                Setting(R.string.about, Glyph.Info) { dialog = SettingsDialog.About }
+                Setting(R.string.about, Glyph.Info, showUpdateBadge, onAbout)
             }
             Text(stringResource(R.string.drawer_footer), Modifier.padding(start = 6.dp, top = 12.dp, bottom = 24.dp),
                 color = colors.onSurfaceVariant, fontSize = 10.sp)
         }
     }
 
-    val close = { dialog = null }
-    when (dialog) {
-        SettingsDialog.Appearance -> AlertDialog(
+    if (showAppearance) {
+        val close = { showAppearance = false }
+        AlertDialog(
             onDismissRequest = close,
             title = { Text(stringResource(R.string.appearance)) },
             text = {
@@ -124,8 +119,6 @@ fun SettingsDrawer(
             },
             confirmButton = { TextButton(onClick = close) { Text(stringResource(R.string.close)) } },
         )
-        SettingsDialog.About -> AboutUpdates(close)
-        null -> Unit
     }
 }
 
@@ -141,11 +134,14 @@ private fun Section(label: Int) {
 }
 
 @Composable
-private fun Setting(title: Int, glyph: Glyph, onClick: () -> Unit) {
+private fun Setting(title: Int, glyph: Glyph, showUpdateBadge: Boolean = false, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val updateDescription = if (showUpdateBadge) stringResource(R.string.update_badge_description) else null
     Row(
         Modifier.fillMaxWidth().heightIn(min = 68.dp).clip(RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, onClick = onClick).padding(start = 5.dp, end = 11.dp),
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { updateDescription?.let { stateDescription = it } }
+            .padding(start = 5.dp, end = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -158,6 +154,9 @@ private fun Setting(title: Int, glyph: Glyph, onClick: () -> Unit) {
         Spacer(Modifier.width(13.dp))
         Text(stringResource(title), Modifier.weight(1f).padding(end = 8.dp),
             color = colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        if (showUpdateBadge) {
+            Box(Modifier.padding(end = 8.dp).size(8.dp).background(Color(0xFFF3BE42), CircleShape))
+        }
         LocationIcon(Glyph.Next, size = 16.dp, color = colors.onSurfaceVariant)
     }
 }

@@ -17,7 +17,7 @@ android {
         applicationId = "app.locationlab"
         minSdk = 26
         targetSdk = 36
-        versionCode = 24
+        versionCode = 25
         versionName = "1.0.0"
         buildConfigField("String", "UPDATE_REPOSITORY", "\"$updateRepository\"")
     }

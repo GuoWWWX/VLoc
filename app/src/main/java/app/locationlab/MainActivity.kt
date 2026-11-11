@@ -31,9 +31,12 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -42,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.locationlab.data.Appearance
@@ -50,6 +54,7 @@ import app.locationlab.platform.SimulationService
 import app.locationlab.platform.SimulationState
 import app.locationlab.platform.canMockLocation
 import app.locationlab.simulation.SimulationConfig
+import app.locationlab.ui.AboutUpdates
 import app.locationlab.ui.ClipboardLocation
 import app.locationlab.ui.HistoryManagementScreen
 import app.locationlab.ui.HomeScreen
@@ -58,9 +63,13 @@ import app.locationlab.ui.LocationModel
 import app.locationlab.ui.MockPermissionDialog
 import app.locationlab.ui.PickerScreen
 import app.locationlab.ui.SettingsDrawer
+import app.locationlab.ui.UpdateReminderDialog
 import app.locationlab.ui.WelcomeScreen
 import app.locationlab.ui.readSharedClipboard
+import app.locationlab.update.UpdateAvailability
 import app.locationlab.update.UpdateCheckService
+import app.locationlab.update.UpdateRepository
+import java.io.IOException
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -113,6 +122,37 @@ class MainActivity : ComponentActivity() {
         var requestedNotifications by rememberSaveable { mutableStateOf(false) }
         val drawer = rememberDrawerState(DrawerValue.Closed)
         val scope = rememberCoroutineScope()
+        val updateRepository = remember { UpdateRepository(this@MainActivity) }
+        var updateAvailability by remember {
+            mutableStateOf(UpdateAvailability(cachedUpdateAvailable = updateRepository.hasKnownUpdate()))
+        }
+        var handledUpdateCode by rememberSaveable { mutableLongStateOf(0) }
+        var showAbout by rememberSaveable { mutableStateOf(false) }
+        val openAbout = {
+            updateAvailability.update?.let { handledUpdateCode = it.code }
+            showAbout = true
+        }
+        LaunchedEffect(updateRequested) {
+            if (updateRequested) {
+                openAbout()
+                updateRequested = false
+            }
+        }
+        LifecycleStartEffect(updateRepository) {
+            if (!showAbout) {
+                updateAvailability = UpdateAvailability(cachedUpdateAvailable = updateRepository.hasKnownUpdate())
+            }
+            val check = scope.launch {
+                try {
+                    val update = updateRepository.check()
+                    updateAvailability = UpdateAvailability(update = update)
+                    if ((showAbout || updateRequested) && update != null) handledUpdateCode = update.code
+                } catch (_: IOException) {
+                    // The last known availability stays visible while offline.
+                }
+            }
+            onStopOrDispose { check.cancel() }
+        }
         val notificationRequest = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             data?.let { current -> current.config?.let { SimulationService.start(this, it, current.placeName) } }
         }
@@ -196,8 +236,8 @@ class MainActivity : ComponentActivity() {
                                 onMockSettings = { showGuide = true },
                                 onNotifications = { openSystem(Settings.ACTION_APP_NOTIFICATION_SETTINGS) },
                                 onHistory = { scope.launch { drawer.close(); manageHistory = true } },
-                                openAbout = updateRequested,
-                                onAboutOpened = { updateRequested = false },
+                                showUpdateBadge = updateAvailability.showBadge,
+                                onAbout = openAbout,
                             )
                         },
                     ) {
@@ -278,7 +318,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-                    clipboardLocation?.takeUnless { it.fingerprint == loaded.lastHandledShare }?.let { shared ->
+                    val pendingShare = clipboardLocation?.takeUnless { it.fingerprint == loaded.lastHandledShare }
+                    pendingShare?.let { shared ->
                         key(shared.fingerprint) {
                             LocationEntryDialog(shared.location.coordinate, shared.location.name, importing = true,
                                 onClose = {
@@ -291,6 +332,30 @@ class MainActivity : ComponentActivity() {
                                         clipboardLocation = null
                                     }
                                 },
+                            )
+                        }
+                    }
+                    if (showAbout) {
+                        val update = updateAvailability.update
+                        key(update) {
+                            AboutUpdates(
+                                update = update,
+                                onUpdateChecked = { checked ->
+                                    updateAvailability = UpdateAvailability(update = checked)
+                                    checked?.let { handledUpdateCode = it.code }
+                                },
+                                onClose = { showAbout = false },
+                            )
+                        }
+                    } else if (!updateRequested && !welcome && !showGuide && drawer.isClosed &&
+                        picker == null && !manageHistory && pendingShare == null &&
+                        !storageError && simulation !is SimulationState.Error
+                    ) {
+                        updateAvailability.reminder(handledUpdateCode)?.let { update ->
+                            UpdateReminderDialog(
+                                version = update.version,
+                                onLater = { handledUpdateCode = update.code },
+                                onUpdate = openAbout,
                             )
                         }
                     }

@@ -40,11 +40,25 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun AboutUpdates(onClose: () -> Unit) {
+internal fun UpdateReminderDialog(version: String, onLater: () -> Unit, onUpdate: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onLater,
+        title = { Text(stringResource(R.string.update_available, version)) },
+        text = { Text(stringResource(R.string.update_reminder_message)) },
+        confirmButton = {
+            Button(onClick = onUpdate) { Text(stringResource(R.string.update_open)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onLater) { Text(stringResource(R.string.update_later)) }
+        },
+    )
+}
+
+@Composable
+internal fun AboutUpdates(update: AppUpdate?, onUpdateChecked: (AppUpdate?) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     val repository = remember(context) { UpdateRepository(context) }
     val scope = rememberCoroutineScope()
-    var update by remember { mutableStateOf<AppUpdate?>(null) }
     var apk by remember { mutableStateOf<File?>(null) }
     var status by remember { mutableStateOf<Int?>(null) }
     var download by remember { mutableStateOf<Job?>(null) }
@@ -150,8 +164,9 @@ internal fun AboutUpdates(onClose: () -> Unit) {
                         checking = true
                         scope.launch {
                             try {
-                                update = repository.check()
-                                if (update == null) status = R.string.update_latest
+                                val checked = repository.check()
+                                onUpdateChecked(checked)
+                                if (checked == null) status = R.string.update_latest
                             } catch (_: IOException) {
                                 status = R.string.update_check_failed
                             } finally {

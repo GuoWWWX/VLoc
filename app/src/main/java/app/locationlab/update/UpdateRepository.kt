@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import app.locationlab.BuildConfig
 import java.io.File
@@ -34,13 +35,35 @@ internal data class AppUpdate(
     val deltas: List<UpdateDelta>,
 )
 
+internal data class UpdateAvailability(
+    val update: AppUpdate? = null,
+    private val cachedUpdateAvailable: Boolean = false,
+) {
+    val showBadge: Boolean get() = update != null || cachedUpdateAvailable
+
+    fun reminder(handledCode: Long): AppUpdate? = update?.takeUnless { it.code == handledCode }
+}
+
 internal class UpdateRepository(private val context: Context) {
     private val manager = context.packageManager
     private val installed = File(context.applicationInfo.sourceDir)
     private val origin = "https://github.com/${BuildConfig.UPDATE_REPOSITORY}/releases"
     private val directory = File(context.cacheDir, "updates")
+    private val availability = context.getSharedPreferences("update_availability", Context.MODE_PRIVATE)
+
+    fun hasKnownUpdate(): Boolean =
+        availability.getLong(BuildConfig.UPDATE_REPOSITORY, 0) > BuildConfig.VERSION_CODE
 
     suspend fun check(): AppUpdate? = withContext(Dispatchers.IO) {
+        checkLock.withLock {
+            val update = readLatest()
+            currentCoroutineContext().ensureActive()
+            availability.edit { putLong(BuildConfig.UPDATE_REPOSITORY, update?.code ?: 0) }
+            update
+        }
+    }
+
+    private fun readLatest(): AppUpdate? {
         val response = connect(URL("$origin/latest/download/vloc-update.json"))
         val manifest = try {
             if (response.responseCode != 200) throw IOException("Update manifest unavailable")
@@ -52,10 +75,10 @@ internal class UpdateRepository(private val context: Context) {
         } finally {
             response.disconnect()
         }
-        try {
+        return try {
             if (manifest.getInt("schema") != 1) throw IOException("Unknown update manifest schema")
             val code = manifest.getLong("versionCode")
-            if (code <= BuildConfig.VERSION_CODE) return@withContext null
+            if (code <= BuildConfig.VERSION_CODE) return null
             val version = manifest.getString("versionName")
             if (!version.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+"))) throw IOException("Invalid update version")
             val abi = installedAbi(installed) ?: throw IOException("Unsupported architecture")
@@ -190,6 +213,7 @@ internal class UpdateRepository(private val context: Context) {
         (if (Build.VERSION.SDK_INT >= 28) signingInfo?.apkContentsSigners else signatures).orEmpty().toSet()
 
     private companion object {
+        val checkLock = Mutex()
         val downloadLock = Mutex()
         val hosts = setOf("github.com", "release-assets.githubusercontent.com",
             "objects.githubusercontent.com", "github-releases.githubusercontent.com")
