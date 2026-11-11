@@ -1,7 +1,6 @@
 package app.locationlab.update
 
 import android.Manifest
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -13,11 +12,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.drawable.Icon
 import android.os.Build
 import androidx.core.content.edit
 import app.locationlab.MainActivity
 import app.locationlab.R
+import app.locationlab.platform.vlocNotificationBuilder
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -68,9 +67,7 @@ class UpdateCheckService : JobService() {
             Intent(this, MainActivity::class.java).setAction(OPEN_UPDATES)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE)
-        manager.notify(JOB_ID, Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_vloc_notification)
-            .setLargeIcon(Icon.createWithResource(this, R.mipmap.ic_launcher))
+        manager.notify(JOB_ID, vlocNotificationBuilder(this, CHANNEL)
             .setContentTitle(getString(R.string.update_available, update.version))
             .setContentText(getString(R.string.update_notification_hint))
             .setContentIntent(action)

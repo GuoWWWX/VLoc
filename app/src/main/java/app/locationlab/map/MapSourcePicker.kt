@@ -69,6 +69,6 @@ internal fun MapSourcePicker(
 }
 
 private val mapDisplayOrder = listOf(
-    MapSource.AMapPreview, MapSource.BaiduPreview, MapSource.GooglePreview,
+    MapSource.AMapPreview, MapSource.BaiduPreview, MapSource.TencentPreview, MapSource.GooglePreview,
     MapSource.OpenFreeMap, MapSource.OpenStreetMap, MapSource.VersaTiles,
 )

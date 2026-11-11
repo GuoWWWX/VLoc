@@ -69,6 +69,7 @@ class LocationStore internal constructor(private val store: DataStore<Preference
             mapSource = MapSource.entries.firstOrNull { it.name == json.optString("mapSource") }
                 ?: MapSource.OpenFreeMap,
             onboardingSeen = json.optBoolean("onboardingSeen", config != null),
+            setupGuideSeen = json.optBoolean("setupGuideSeen", false),
             placeName = configData?.nameOrNull(),
             selectedHistoryKey = selectedKey,
             lastHandledShare = json.optString("lastHandledShare").takeIf { it.isNotBlank() },
@@ -79,6 +80,7 @@ class LocationStore internal constructor(private val store: DataStore<Preference
         put("appearance", data.appearance.name)
         put("mapSource", data.mapSource.name)
         put("onboardingSeen", data.onboardingSeen)
+        put("setupGuideSeen", data.setupGuideSeen)
         put("selectedHistoryKey", data.selectedHistoryKey.orEmpty())
         put("lastHandledShare", data.lastHandledShare)
         data.config?.let {

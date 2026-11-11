@@ -38,6 +38,13 @@ const mapPreview = (() => {
                     { ...tileOptions, attribution: "© Google" },
                 );
                 break;
+            case "TencentPreview":
+                crs = L.ChineseCRS.CRS_GCJ02_3857;
+                tiles = L.tileLayer(
+                    "https://rt0.map.gtimg.com/tile?z={z}&x={x}&y={-y}&styleid=1&version=297",
+                    { ...tileOptions, attribution: "© 腾讯地图" },
+                );
+                break;
             case "AMapPreview":
                 crs = L.ChineseCRS.CRS_GCJ02_3857;
                 tiles = L.tileLayer(

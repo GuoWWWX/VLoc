@@ -30,12 +30,13 @@ data class AppData(
     val config: SimulationConfig? = null,
     val history: List<HistoryEntry> = emptyList(),
     val appearance: Appearance = Appearance.System,
-    val mapSource: MapSource = MapSource.OpenFreeMap,
+    val mapSource: MapSource = MapSource.AMapPreview,
     val onboardingSeen: Boolean = false,
     val placeName: String? = null,
     val selectedHistoryKey: String? = config?.center?.historyKey(),
     val lastHandledShare: String? = null,
     val lastSimulation: Coordinate? = null,
+    val setupGuideSeen: Boolean = false,
 ) {
     fun add(config: SimulationConfig, now: Long, name: String?, key: String, makeCurrent: Boolean = true): AppData {
         val entry = HistoryEntry(config.center, now, placeName = name.normalizedName(), key = key)

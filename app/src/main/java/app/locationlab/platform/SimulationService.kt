@@ -8,7 +8,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
@@ -28,6 +27,7 @@ import app.locationlab.simulation.decodeDriftTiming
 import app.locationlab.simulation.encode
 import java.time.ZonedDateTime
 import java.io.IOException
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -66,6 +67,7 @@ class SimulationService : Service() {
     private lateinit var mock: MockLocation
     private lateinit var store: LocationStore
     private var updates: Job? = null
+    private var finishing = false
     private val refreshRequests = Channel<Unit>(Channel.CONFLATED)
 
     override fun onCreate() {
@@ -93,7 +95,7 @@ class SimulationService : Service() {
             finish()
             return START_NOT_STICKY
         }
-        if (updates != null) return START_NOT_STICKY
+        if (updates != null || finishing) return START_NOT_STICKY
 
         try {
             val notification = notification()
@@ -121,21 +123,24 @@ class SimulationService : Service() {
             val engine = DriftEngine(config)
             var point = engine.initialPoint()
             mock.open()
+            var nextLocationRefresh = SystemClock.elapsedRealtime() + LOCATION_REFRESH_MS
             val previous = deliver(point)
             val timer = DriftTimer(if (config.drift) config.timing else DriftTiming.OnStart,
                 SystemClock.elapsedRealtime(), ZonedDateTime.now())
             mutableState.value = SimulationState.Running(config, point, previousPoint = previous,
                 name = name, nextDrift = timer.nextDeadline)
             while (currentCoroutineContext().isActive) {
-                val wait = timer.millisecondsUntil(SystemClock.elapsedRealtime(), ZonedDateTime.now())
+                val now = SystemClock.elapsedRealtime()
+                val wait = minOf(timer.millisecondsUntil(now, ZonedDateTime.now()), nextLocationRefresh - now)
                 val scheduled = mutableState.value as? SimulationState.Running
                 if (scheduled != null && scheduled.nextDrift != timer.nextDeadline) {
                     mutableState.value = scheduled.copy(nextDrift = timer.nextDeadline)
                 }
-                val refresh = withTimeoutOrNull(wait.coerceIn(1, LOCATION_REFRESH_MS)) {
+                val refresh = withTimeoutOrNull(wait.coerceAtLeast(1)) {
                     refreshRequests.receive()
                 } != null
                 val refreshStarted = SystemClock.elapsedRealtime()
+                nextLocationRefresh = refreshStarted + LOCATION_REFRESH_MS
                 val due = timer.advanceIfDue(SystemClock.elapsedRealtime(), ZonedDateTime.now())
                 val next = when {
                     refresh -> engine.refresh()
@@ -176,21 +181,42 @@ class SimulationService : Service() {
     }
 
     private fun finish(@StringRes error: Int? = null) {
+        if (finishing) return
+        finishing = true
         updates?.cancel()
         updates = null
-        val cleaned = mock.close()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        mutableState.value = when {
-            !cleaned -> SimulationState.Error(R.string.simulation_cleanup_error)
-            error != null -> SimulationState.Error(error)
-            else -> SimulationState.Idle
+        val cleanup = mock.close()
+        fun complete(cleaned: Boolean) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            mutableState.value = when {
+                !cleaned -> SimulationState.Error(R.string.simulation_cleanup_error)
+                error != null -> SimulationState.Error(error)
+                else -> SimulationState.Idle
+            }
+            finishing = false
+            stopSelf()
         }
-        stopSelf()
+        if (cleanup.isComplete) {
+            complete(cleanup.isSuccessful && cleanup.result == true)
+            return
+        }
+        mutableState.value = SimulationState.Stopping
+        scope.launch {
+            val cleaned = withTimeoutOrNull(CLEANUP_WAIT_MS) {
+                suspendCancellableCoroutine<Boolean> { continuation ->
+                    cleanup.addOnCompleteListener {
+                        continuation.resume(it.isSuccessful && it.result == true)
+                    }
+                }
+            } == true
+            complete(cleaned)
+        }
     }
 
     override fun onDestroy() {
         scope.cancel()
-        val cleaned = mock.close()
+        val cleanup = mock.close()
+        val cleaned = cleanup.isSuccessful && cleanup.result == true
         if (mutableState.value !is SimulationState.Error) {
             mutableState.value = if (cleaned) SimulationState.Idle
             else SimulationState.Error(R.string.simulation_cleanup_error)
@@ -215,9 +241,7 @@ class SimulationService : Service() {
             this, 0, Intent(this, SimulationService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE,
         )
-        return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_vloc_notification)
-            .setLargeIcon(Icon.createWithResource(this, R.mipmap.ic_launcher))
+        return vlocNotificationBuilder(this, CHANNEL)
             .setContentTitle(getString(R.string.simulation_running))
             .setContentIntent(content)
             .setOngoing(true)
@@ -232,8 +256,9 @@ class SimulationService : Service() {
         private const val ACTION_REFRESH = "app.locationlab.REFRESH"
         private const val CHANNEL = "simulation"
         private const val NOTIFICATION_ID = 1
-        private const val LOCATION_REFRESH_MS = 5_000L
+        private const val LOCATION_REFRESH_MS = 125L
         private const val REFRESH_FEEDBACK_MS = 400L
+        private const val CLEANUP_WAIT_MS = 3_000L
         private val mutableState = MutableStateFlow<SimulationState>(SimulationState.Idle)
         val state = mutableState.asStateFlow()
 

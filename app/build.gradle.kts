@@ -17,8 +17,8 @@ android {
         applicationId = "app.locationlab"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.8.0"
+        versionCode = 24
+        versionName = "1.0.0"
         buildConfigField("String", "UPDATE_REPOSITORY", "\"$updateRepository\"")
     }
 
@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.datastore)
     implementation(libs.maps.osm)
     implementation(libs.maps.maplibre)
+    implementation(libs.play.location)
     testImplementation(libs.junit)
     testImplementation(libs.json)
 }

@@ -83,6 +83,7 @@ private class RasterPreviewSurface(
     private val tileEndpoint = when (source) {
         MapSource.AMapPreview -> "https://wprd01.is.autonavi.com/appmaptile"
         MapSource.BaiduPreview -> "https://maponline0.bdimg.com/tile/"
+        MapSource.TencentPreview -> "https://rt0.map.gtimg.com/tile"
         MapSource.GooglePreview -> "https://mt1.google.com/vt"
         else -> error("Unsupported WebView map source: $source")
     }.toUri()

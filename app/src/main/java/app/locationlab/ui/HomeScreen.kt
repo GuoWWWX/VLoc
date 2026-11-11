@@ -10,7 +10,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -18,7 +17,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,6 +38,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,6 +60,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -69,6 +69,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -101,7 +103,6 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun HomeScreen(
     data: AppData,
@@ -125,6 +126,7 @@ internal fun HomeScreen(
     val running = active != null || busyStatus == R.string.simulation_stopping
     val config = active?.config ?: data.config
     val name = if (active != null) active.name else data.placeName
+    var previewPoint by remember(config?.center) { mutableStateOf<Coordinate?>(null) }
     var favorites by rememberSaveable { mutableStateOf(false) }
     val entries = remember(data.history, favorites) { data.visibleHistory(favorites) }
     val listState = rememberLazyListState()
@@ -138,7 +140,7 @@ internal fun HomeScreen(
     LaunchedEffect(drawerOpen, entries) {
         if (drawerOpen || entries.none { it.key == expandedKey }) expandedKey = null
     }
-    BoxWithConstraints(
+    Box(
         Modifier.fillMaxSize()
             .onGloballyPositioned { coordinates = it }
             .pointerInput(expandedKey) {
@@ -154,28 +156,6 @@ internal fun HomeScreen(
             },
         contentAlignment = Alignment.TopCenter,
     ) {
-        val pinPreview = maxHeight >= 480.dp
-        val preview: @Composable () -> Unit = {
-            Column(Modifier.fillMaxWidth().background(colors.background)) {
-                CurrentLocationCard(config, name, data.mapSource, active, data.lastSimulation, running, busyStatus,
-                    onPick, onAdd, onStart, onStop, onRefresh, onToggleDrift)
-                Spacer(Modifier.height(11.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.history), Modifier.weight(1f), color = colors.onSurface,
-                        fontSize = 19.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
-                    SegmentedIconControl(
-                        rightSelected = favorites,
-                        leftLabel = stringResource(R.string.history_all_filter),
-                        rightLabel = stringResource(R.string.history_favorites_filter),
-                        leftIcon = Glyph.List,
-                        rightIcon = if (favorites) Glyph.StarFilled else Glyph.Star,
-                        onSelect = { favorites = it; expandedKey = null },
-                        modifier = Modifier.offset(x = 8.dp),
-                    )
-                }
-                Spacer(Modifier.height(14.dp))
-            }
-        }
         LazyColumn(
             Modifier.widthIn(max = 540.dp).fillMaxWidth().safeDrawingPadding(),
             state = listState,
@@ -196,8 +176,28 @@ internal fun HomeScreen(
                 }
                 Spacer(Modifier.height(18.dp))
             }
-            if (pinPreview) stickyHeader(key = "map-and-history-header") { preview() }
-            else item(key = "map-and-history-header") { preview() }
+            item(key = "map-and-history-header") {
+                Column(Modifier.fillMaxWidth().background(colors.background)) {
+                    CurrentLocationCard(config, name, data.mapSource, active, data.lastSimulation, previewPoint,
+                        running, busyStatus, onPick, onAdd, onStart, onStop, onRefresh, onToggleDrift,
+                        onLocate = { previewPoint = it })
+                    Spacer(Modifier.height(11.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.history), Modifier.weight(1f), color = colors.onSurface,
+                            fontSize = 19.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+                        SegmentedIconControl(
+                            rightSelected = favorites,
+                            leftLabel = stringResource(R.string.history_all_filter),
+                            rightLabel = stringResource(R.string.history_favorites_filter),
+                            leftIcon = Glyph.List,
+                            rightIcon = if (favorites) Glyph.StarFilled else Glyph.Star,
+                            onSelect = { favorites = it; expandedKey = null },
+                            modifier = Modifier.offset(x = 8.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
             if (entries.isEmpty()) {
                 item {
                     Text(
@@ -261,6 +261,15 @@ internal fun HomeScreen(
 @Composable
 private fun SimulationStatus(label: String, running: Boolean, busy: Boolean) {
     val colors = MaterialTheme.colorScheme
+    val textStyle = LocalTextStyle.current.copy(fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium)
+    val labels = listOf(stringResource(R.string.idle), stringResource(R.string.simulation_starting),
+        stringResource(R.string.home_running), stringResource(R.string.simulation_stopping))
+    val measurer = rememberTextMeasurer()
+    // Reserve the widest label so the two texts stay centered while they crossfade.
+    val textWidthPx = remember(measurer, textStyle, labels) {
+        labels.maxOf { measurer.measure(it, style = textStyle, maxLines = 1, softWrap = false).size.width }
+    }
+    val textWidth = with(LocalDensity.current) { textWidthPx.toDp() }
     val dot = when {
         busy -> Color(0xFFBE7A30)
         running -> Color(0xFF209467)
@@ -289,9 +298,11 @@ private fun SimulationStatus(label: String, running: Boolean, busy: Boolean) {
             }
             Box(Modifier.size(5.dp).background(dot, CircleShape))
         }
-        Crossfade(label, animationSpec = tween(160), label = "Simulation status") { status ->
-            Text(status, color = if (running && !busy) colors.onSecondaryContainer else colors.onSurfaceVariant,
-                fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium)
+        Crossfade(label, Modifier.width(textWidth), animationSpec = tween(160), label = "Simulation status") { status ->
+            Text(status, Modifier.fillMaxWidth(),
+                color = if (running && !busy) colors.onSecondaryContainer else colors.onSurfaceVariant,
+                style = textStyle, textAlign = TextAlign.Center, maxLines = 1, softWrap = false,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -303,6 +314,7 @@ private fun CurrentLocationCard(
     mapSource: MapSource,
     active: SimulationState.Running?,
     lastSimulation: Coordinate?,
+    previewPoint: Coordinate?,
     running: Boolean,
     @StringRes busyStatus: Int?,
     onPick: () -> Unit,
@@ -311,17 +323,24 @@ private fun CurrentLocationCard(
     onStop: () -> Unit,
     onRefresh: () -> Unit,
     onToggleDrift: () -> Unit,
+    onLocate: (Coordinate) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val busy = busyStatus != null
     val previous = (if (active != null) active.previousPoint else lastSimulation).takeIf { config?.drift == true }
+    var locationNotice by remember(config?.center) { mutableStateOf<Int?>(null) }
+    val focus = config?.center ?: previewPoint
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp)).background(colors.surface)
             .padding(start = 16.dp, top = 13.dp, end = 16.dp, bottom = 14.dp),
     ) {
         Row(Modifier.heightIn(min = 28.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                placeName ?: stringResource(if (config == null) R.string.no_point else R.string.coordinate_title),
+                placeName ?: stringResource(when {
+                    config != null -> R.string.coordinate_title
+                    previewPoint != null -> R.string.current_location_preview
+                    else -> R.string.no_point
+                }),
                 Modifier.weight(1f).padding(end = 8.dp), color = colors.onSurface, fontSize = 19.sp,
                 lineHeight = 27.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
@@ -338,14 +357,28 @@ private fun CurrentLocationCard(
             CopyableCoordinate(config.center)
         }
         Box(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            LocationMapPreview(config, active, previous, mapSource, canOpen = config != null && !running && !busy,
+            LocationMapPreview(focus, config?.takeIf { it.drift }?.radiusMeters, active, previous, mapSource,
+                canOpen = config != null && !running && !busy,
                 onOpen = onPick)
+            if (config == null && !running && !busy) {
+                val showLabel = previewPoint == null
+                CurrentLocationControl(
+                    onLocate = onLocate,
+                    onNotice = { locationNotice = it },
+                    modifier = if (showLabel) Modifier.align(Alignment.Center)
+                        else Modifier.align(Alignment.BottomEnd).padding(4.dp),
+                    showLabel = showLabel,
+                )
+            }
             LocationIconButton(Glyph.Plus, stringResource(R.string.add_location), onAdd,
                 modifier = Modifier.align(Alignment.TopEnd).offset(x = (-17).dp, y = (-24).dp),
                 background = colors.primary, color = colors.onPrimary, visibleSize = 44.dp, iconSize = 23.dp,
                 enabled = !busy, shape = CircleShape)
         }
-        if (config != null && mapSource in listOf(MapSource.OpenStreetMap, MapSource.OpenFreeMap, MapSource.VersaTiles)) {
+        locationNotice?.let {
+            Text(stringResource(it), Modifier.padding(top = 6.dp), color = colors.onSurfaceVariant, fontSize = 12.sp)
+        }
+        if (focus != null && mapSource in listOf(MapSource.OpenStreetMap, MapSource.OpenFreeMap, MapSource.VersaTiles)) {
             val uri = LocalUriHandler.current
             val copyright = stringResource(R.string.osm_copyright)
             Text(stringResource(R.string.map_attribution), Modifier.align(Alignment.End)
@@ -495,7 +528,8 @@ private fun HistoryAction(label: String, glyph: Glyph, width: Dp, fill: Color, i
 
 @Composable
 private fun LocationMapPreview(
-    config: SimulationConfig?,
+    focus: Coordinate?,
+    radiusMeters: Int?,
     active: SimulationState.Running?,
     previous: Coordinate?,
     source: MapSource,
@@ -507,14 +541,11 @@ private fun LocationMapPreview(
     val current = active?.point?.takeIf { active.config.drift }
     Box(Modifier.fillMaxWidth().height(176.dp).clip(RoundedCornerShape(12.dp)).background(colors.background),
         contentAlignment = Alignment.Center) {
-        if (config != null) {
-            key(config.center) {
-                SourceMap(source, MapCamera(config.center, 0, config.radiusMeters.takeIf { config.drift },
-                    currentPoint = current, previousPoint = previous),
+        if (focus != null) {
+            key(focus) {
+                SourceMap(source, MapCamera(focus, 0, radiusMeters, currentPoint = current, previousPoint = previous),
                     onPointSelected = null, modifier = Modifier.matchParentSize(), showAttribution = false)
             }
-        } else {
-            LocationIcon(Glyph.Position, size = 30.dp, color = colors.onSurfaceVariant)
         }
         if (canOpen) {
             val label = stringResource(R.string.open_map_preview)

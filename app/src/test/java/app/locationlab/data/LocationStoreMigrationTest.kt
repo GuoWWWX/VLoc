@@ -18,6 +18,17 @@ import org.junit.Test
 
 class LocationStoreMigrationTest {
     @Test
+    fun freshInstallDefaultsToAmapAndKeepsTheUsersMapChoice() = runBlocking {
+        val storage = TestStore()
+        val store = LocationStore(storage)
+        assertEquals(MapSource.AMapPreview, store.data.first().mapSource)
+
+        store.edit { it.copy(mapSource = MapSource.TencentPreview) }
+
+        assertEquals(MapSource.TencentPreview, LocationStore(storage).data.first().mapSource)
+    }
+
+    @Test
     fun legacySnapshotKeepsSelectedOptionsNamesAndFlagsWhenSavedAgain() = runBlocking {
         val storage = TestStore("""
             {"config":{"lat":22.54,"lon":114.05,"drift":true,"radius":240,"interval":30,"name":"公共样例"},
@@ -83,8 +94,24 @@ class LocationStoreMigrationTest {
         assertEquals(imported.first().configuration(), reopened.data.first().config)
     }
 
-    private class TestStore(raw: String) : DataStore<Preferences> {
-        override val data = MutableStateFlow<Preferences>(mutablePreferencesOf(stringPreferencesKey("app_data") to raw))
+    @Test
+    fun existingUsersSeeNewSetupGuideOnceWithoutLosingTheirConfiguration() = runBlocking {
+        val storage = TestStore("""{"onboardingSeen":true,"config":{"lat":22.54,"lon":114.05,"drift":false,"radius":50}}""")
+        val store = LocationStore(storage)
+        val original = store.data.first()
+        assertTrue(original.onboardingSeen)
+        assertEquals(false, original.setupGuideSeen)
+        store.edit { it.copy(setupGuideSeen = true) }
+        val reopened = LocationStore(storage).data.first()
+        assertTrue(reopened.setupGuideSeen)
+        assertEquals(original.config, reopened.config)
+        assertEquals(original.history, reopened.history)
+    }
+
+    private class TestStore(raw: String? = null) : DataStore<Preferences> {
+        override val data = MutableStateFlow<Preferences>(mutablePreferencesOf().apply {
+            if (raw != null) this[stringPreferencesKey("app_data")] = raw
+        })
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
             transform(data.value).also { data.value = it }
     }

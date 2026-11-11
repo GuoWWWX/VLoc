@@ -173,8 +173,8 @@ class MainActivity : ComponentActivity() {
                     val selectMapSource: (MapSource) -> Unit = { source ->
                         model.edit { it.copy(mapSource = source) }
                     }
-                    val welcome = !loaded.onboardingSeen && loaded.config == null
-                    val finishWelcome = { model.edit { it.copy(onboardingSeen = true) } }
+                    val welcome = !loaded.setupGuideSeen
+                    val finishWelcome = { model.edit { it.copy(onboardingSeen = true, setupGuideSeen = true) } }
                     BackHandler(drawer.isOpen || picker != null || manageHistory) {
                         when {
                             drawer.isOpen -> scope.launch { drawer.close() }
@@ -205,9 +205,6 @@ class MainActivity : ComponentActivity() {
                             welcome -> WelcomeScreen(
                                 authorized = mockAllowed,
                                 onClose = finishWelcome,
-                                onOpenSettings = {
-                                    openSystem(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-                                },
                             )
                             picker != null -> PickerScreen(
                                 initial = if (picker == PickerMode.Add) loaded.config?.let { SimulationConfig(it.center) }
@@ -300,11 +297,8 @@ class MainActivity : ComponentActivity() {
                 }
                 if (showGuide) {
                     MockPermissionDialog(
+                        authorized = mockAllowed,
                         onDismiss = { showGuide = false },
-                        onOpenSettings = {
-                            showGuide = false
-                            openSystem(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-                        },
                     )
                 }
                 val error = simulation as? SimulationState.Error

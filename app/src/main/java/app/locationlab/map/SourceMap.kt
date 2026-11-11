@@ -65,7 +65,7 @@ internal fun SourceMap(
             MapSource.OpenStreetMap -> LocationMap(camera, onPointSelected, modifier, initialViewport, onViewportChanged, showAttribution)
             MapSource.OpenFreeMap, MapSource.VersaTiles ->
                 VectorMap(requireNotNull(source.styleUrl), camera, onPointSelected, modifier, initialViewport, onViewportChanged, showAttribution)
-            MapSource.AMapPreview, MapSource.BaiduPreview, MapSource.GooglePreview ->
+            MapSource.AMapPreview, MapSource.BaiduPreview, MapSource.TencentPreview, MapSource.GooglePreview ->
                 RasterPreviewMap(source, camera, onPointSelected, modifier, initialViewport, onViewportChanged, showAttribution)
         }
     }

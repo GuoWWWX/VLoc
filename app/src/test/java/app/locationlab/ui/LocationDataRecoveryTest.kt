@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.locationlab.data.AppData
 import app.locationlab.data.LocationStore
+import app.locationlab.map.MapSource
 import app.locationlab.simulation.Coordinate
 import app.locationlab.simulation.SimulationConfig
 import java.io.IOException
@@ -70,7 +71,7 @@ class LocationDataRecoveryTest {
 
             storage.values.value = mutablePreferencesOf(key to "{}")
             reloads.value++
-            assertEquals(AppData(), withTimeout(5_000) { snapshots.receive() })
+            assertEquals(AppData(mapSource = MapSource.OpenFreeMap), withTimeout(5_000) { snapshots.receive() })
         } finally {
             observation.cancel()
         }
