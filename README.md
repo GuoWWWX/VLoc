@@ -59,4 +59,6 @@ v1.0.0 新增腾讯地图，地图顺序为高德、百度、腾讯、Google、O
 
 项目结构和验收规则见 [功能需求](docs/功能需求文档.md)、[架构设计](docs/架构设计文档.md) 与 [项目规范](docs/项目规范文档.md)。
 
-VLoc 源码按 [MIT 许可证](LICENSE) 发布。随包第三方组件保留各自许可证。版本变更见 [更新记录](CHANGELOG.md)。
+当前源码及随附该许可的安装包采用 [VLoc 非商业许可 1.0](LICENSE)。商业使用须事先取得权利人书面许可。第三方组件适用各自的许可。已按 MIT 发布的副本适用当时随附的 [MIT 许可证](https://github.com/GuoWWWX/VLoc/blob/v1.0.0/LICENSE)。
+
+首次使用含条款的版本时，请阅读并同意 [软件使用条款](app/src/main/assets/legal/TERMS.zh-CN.txt)。许可和条款都可以在「关于」查看。版本变更见 [更新记录](CHANGELOG.md)。

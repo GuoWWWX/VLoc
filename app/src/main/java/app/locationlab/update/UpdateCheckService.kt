@@ -16,6 +16,7 @@ import android.os.Build
 import androidx.core.content.edit
 import app.locationlab.MainActivity
 import app.locationlab.R
+import app.locationlab.data.TermsConsent
 import app.locationlab.platform.vlocNotificationBuilder
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -31,6 +32,7 @@ class UpdateCheckService : JobService() {
     private var work: Job? = null
 
     override fun onStartJob(params: JobParameters): Boolean {
+        if (!TermsConsent.hasAccepted(applicationContext)) return false
         work = scope.launch {
             try {
                 UpdateRepository(applicationContext).check()?.let(::notifyIfNew)

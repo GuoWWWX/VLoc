@@ -3,8 +3,12 @@ package app.locationlab.ui
 import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,9 +27,13 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,6 +64,7 @@ internal fun UpdateReminderDialog(version: String, onLater: () -> Unit, onUpdate
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 internal fun AboutUpdates(update: AppUpdate?, onUpdateChecked: (AppUpdate?) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
     val repository = remember(context) { UpdateRepository(context) }
@@ -64,6 +74,11 @@ internal fun AboutUpdates(update: AppUpdate?, onUpdateChecked: (AppUpdate?) -> U
     var download by remember { mutableStateOf<Job?>(null) }
     var checking by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
+    var legalDocument by rememberSaveable { mutableStateOf<LegalDocument?>(null) }
+    legalDocument?.let { document ->
+        LegalDocumentDialog(document) { legalDocument = null }
+        return
+    }
     val projectUrl = "https://github.com/${BuildConfig.UPDATE_REPOSITORY}"
     val colors = MaterialTheme.colorScheme
     fun openProject(path: String) {
@@ -95,10 +110,20 @@ internal fun AboutUpdates(update: AppUpdate?, onUpdateChecked: (AppUpdate?) -> U
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(stringResource(R.string.about_text), color = colors.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { openProject("") }) { Text("GitHub") }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { openProject("") }) {
+                        Icon(
+                            painterResource(R.drawable.ic_github_mark),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = if (colors.surface.luminance() < 0.5f) Color.White else Color.Black,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("GitHub")
+                    }
                     TextButton(onClick = { openProject("/releases") }) { Text(stringResource(R.string.about_releases)) }
-                    TextButton(onClick = { openProject("/blob/main/LICENSE") }) { Text("MIT") }
+                    TextButton(onClick = { legalDocument = LegalDocument.License }) { Text(stringResource(R.string.about_license)) }
+                    TextButton(onClick = { legalDocument = LegalDocument.Terms }) { Text(stringResource(R.string.terms_title)) }
                 }
                 Surface(shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerLow) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

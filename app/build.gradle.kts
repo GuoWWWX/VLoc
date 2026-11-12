@@ -9,6 +9,13 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val licenseAssets = layout.buildDirectory.dir("generated/assets/vlocLicense")
+val copyVlocLicense by tasks.registering(Copy::class) {
+    from(rootProject.file("LICENSE")) { rename { "VLoc-LICENSE.txt" } }
+    into(licenseAssets)
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(copyVlocLicense) }
+
 android {
     namespace = "app.locationlab"
     compileSdk = 36
@@ -17,8 +24,8 @@ android {
         applicationId = "app.locationlab"
         minSdk = 26
         targetSdk = 36
-        versionCode = 25
-        versionName = "1.0.0"
+        versionCode = 26
+        versionName = "1.0.1"
         buildConfigField("String", "UPDATE_REPOSITORY", "\"$updateRepository\"")
     }
 
@@ -34,6 +41,7 @@ android {
     packaging {
         jniLibs { useLegacyPackaging = true }
     }
+    sourceSets.getByName("main").assets.srcDir(licenseAssets)
 
     buildFeatures {
         compose = true

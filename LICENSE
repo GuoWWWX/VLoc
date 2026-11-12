@@ -1,21 +1,45 @@
-MIT License
+VLoc Noncommercial License 1.0
 
 Copyright (c) 2026 GuoWWWX
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Scope
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This license applies to the VLoc project materials, including source code
+and executable distributions, provided under these terms (the "Software").
+Third-party components remain subject to their respective licenses.
+Permissions previously granted for a copy remain governed by the license
+under which that copy was provided.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. Noncommercial grant
+
+The copyright holder grants you a worldwide, nonexclusive, royalty-free
+license to use, copy, modify, and redistribute the Software in source or
+executable form solely for noncommercial purposes, subject to this license.
+
+A noncommercial purpose is one that does not seek commercial advantage or
+payment. Using the Software in business operations or to develop, test,
+promote, or provide a commercial product or service is commercial use, even
+when the Software itself is free of charge. Selling copies, charging for
+access, and including the Software in a paid offering are commercial uses.
+Commercial use requires prior written permission from the copyright holder.
+
+3. Redistribution
+
+Include this license and its copyright notice with each copy or substantial
+portion of the Software you redistribute, including modified copies.
+Preserve applicable third-party license notices.
+
+4. Termination
+
+Your rights under this license terminate if you fail to comply with its
+conditions. Recipients who received the Software under this license keep
+their rights as long as they comply with its conditions.
+
+5. Warranty and liability
+
+To the extent permitted by applicable law, the Software is provided "as is"
+without warranty, express or implied, including warranties of merchantability,
+fitness for a particular purpose, and noninfringement. To the same extent,
+the copyright holder is not liable for claims or damages arising from the
+Software or its use. Rights and liabilities that cannot be excluded or
+limited by applicable law remain in effect.

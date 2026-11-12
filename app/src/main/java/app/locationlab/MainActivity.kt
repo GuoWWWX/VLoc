@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.locationlab.data.Appearance
+import app.locationlab.data.TermsConsent
 import app.locationlab.map.MapSource
 import app.locationlab.platform.SimulationService
 import app.locationlab.platform.SimulationState
@@ -63,6 +64,7 @@ import app.locationlab.ui.LocationModel
 import app.locationlab.ui.MockPermissionDialog
 import app.locationlab.ui.PickerScreen
 import app.locationlab.ui.SettingsDrawer
+import app.locationlab.ui.TermsConsentScreen
 import app.locationlab.ui.UpdateReminderDialog
 import app.locationlab.ui.WelcomeScreen
 import app.locationlab.ui.readSharedClipboard
@@ -77,14 +79,37 @@ class MainActivity : ComponentActivity() {
     private var clipboardLocation by mutableStateOf<ClipboardLocation?>(null)
     private var updateRequested by mutableStateOf(false)
     private var mockAllowed by mutableStateOf(false)
+    private var termsAccepted by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         updateRequested = intent.action == UpdateCheckService.OPEN_UPDATES
-        mockAllowed = canMockLocation()
-        UpdateCheckService.schedule(this)
-        setContent { LocationApp() }
+        termsAccepted = TermsConsent.hasAccepted(this)
+        if (termsAccepted) {
+            mockAllowed = canMockLocation()
+            UpdateCheckService.schedule(this)
+        }
+        setContent {
+            if (termsAccepted) {
+                LocationApp()
+            } else {
+                MaterialTheme(colorScheme = vlocColorScheme(isSystemInDarkTheme())) {
+                    TermsConsentScreen(
+                        onAccept = {
+                            val accepted = TermsConsent.accept(applicationContext)
+                            if (accepted) {
+                                termsAccepted = true
+                                UpdateCheckService.schedule(this@MainActivity)
+                                refreshForegroundState()
+                            }
+                            accepted
+                        },
+                        onExit = ::finish,
+                    )
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -94,6 +119,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (termsAccepted) refreshForegroundState()
+    }
+
+    private fun refreshForegroundState() {
         mockAllowed = canMockLocation()
         clipboardCheckPending = true
         checkClipboard()
@@ -105,7 +134,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkClipboard() {
-        if (!clipboardCheckPending || !hasWindowFocus()) return
+        if (!termsAccepted || !clipboardCheckPending || !hasWindowFocus()) return
         clipboardCheckPending = false
         clipboardLocation = readSharedClipboard()
     }
@@ -169,28 +198,7 @@ class MainActivity : ComponentActivity() {
             Appearance.Dark -> true
             else -> isSystemInDarkTheme()
         }
-        val theme = if (dark) {
-            darkColorScheme(
-                primary = Color(0xFF7DDBCF),
-                onPrimary = Color(0xFF103735),
-                secondaryContainer = Color(0xFF174743),
-                onSecondaryContainer = Color(0xFFA3F0E5),
-                background = Color(0xFF101C1C),
-                surface = Color(0xFF172626),
-            )
-        } else {
-            lightColorScheme(
-                primary = Color(0xFF087D76),
-                onPrimary = Color.White,
-                secondaryContainer = Color(0xFFD6F1E8),
-                onSecondaryContainer = Color(0xFF0D6965),
-                background = Color(0xFFF4F8F6),
-                surface = Color.White,
-                onSurface = Color(0xFF122D31),
-                onSurfaceVariant = Color(0xFF637D7B),
-                outlineVariant = Color(0xFFD8E4E0),
-            )
-        }
+        val theme = vlocColorScheme(dark)
 
         MaterialTheme(colorScheme = theme) {
             Surface(Modifier.fillMaxSize(), color = theme.background) {
@@ -396,6 +404,29 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, fallback, Toast.LENGTH_LONG).show()
         }
     }
+}
+
+private fun vlocColorScheme(dark: Boolean) = if (dark) {
+    darkColorScheme(
+        primary = Color(0xFF7DDBCF),
+        onPrimary = Color(0xFF103735),
+        secondaryContainer = Color(0xFF174743),
+        onSecondaryContainer = Color(0xFFA3F0E5),
+        background = Color(0xFF101C1C),
+        surface = Color(0xFF172626),
+    )
+} else {
+    lightColorScheme(
+        primary = Color(0xFF087D76),
+        onPrimary = Color.White,
+        secondaryContainer = Color(0xFFD6F1E8),
+        onSecondaryContainer = Color(0xFF0D6965),
+        background = Color(0xFFF4F8F6),
+        surface = Color.White,
+        onSurface = Color(0xFF122D31),
+        onSurfaceVariant = Color(0xFF637D7B),
+        outlineVariant = Color(0xFFD8E4E0),
+    )
 }
 
 private enum class PickerMode { Add, Edit }
